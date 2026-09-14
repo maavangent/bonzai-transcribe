@@ -6,40 +6,40 @@ import MeetingTranscriberCore
 public final class WindowManager {
     public static let shared = WindowManager()
 
-    private var reviewWindow: NSWindow?
+    private var mainWindow: NSWindow?
     private var speakerWindow: NSWindow?
 
-    public func showReviewWindow(appState: AppState) {
+    public func showMainWindow(appState: AppState) {
         NSApp.activate(ignoringOtherApps: true)
 
-        if let window = reviewWindow, window.isVisible {
+        if let window = mainWindow {
             window.makeKeyAndOrderFront(nil)
             return
         }
 
-        let contentView = TranscriptReviewView(appState: appState)
+        let contentView = MainAppView(appState: appState)
         let hostingController = NSHostingController(rootView: contentView)
 
         let window = NSWindow(
-            contentRect: NSRect(x: 0, y: 0, width: 850, height: 650),
+            contentRect: NSRect(x: 0, y: 0, width: 1000, height: 700),
             styleMask: [.titled, .closable, .miniaturizable, .resizable],
             backing: .buffered,
             defer: false
         )
-        window.title = "Meeting Transcript Review"
+        window.title = "Meeting Transcriber"
         window.contentViewController = hostingController
         window.center()
-        window.setFrameAutosaveName("MeetingTranscriberReviewWindow")
+        window.setFrameAutosaveName("MeetingTranscriberMainWindow")
         window.isReleasedWhenClosed = false
         window.makeKeyAndOrderFront(nil)
 
-        self.reviewWindow = window
+        self.mainWindow = window
     }
 
     public func showSpeakerWindow(appState: AppState) {
         NSApp.activate(ignoringOtherApps: true)
 
-        if let window = speakerWindow, window.isVisible {
+        if let window = speakerWindow {
             window.makeKeyAndOrderFront(nil)
             return
         }

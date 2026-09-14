@@ -13,9 +13,39 @@ public final class AppState: ObservableObject {
     }
 
     @Published public var status: RecordingStatus = .idle
-    @Published public var currentTranscript: MeetingTranscript?
+    @Published public var transcripts: [MeetingTranscript] = []
+    @Published public var selectedTranscriptId: String? = nil
+    @Published public var searchQuery: String = ""
     @Published public var statusMessage: String = "Klaar voor opname"
-    @Published public var recentTranscripts: [MeetingTranscript] = []
+
+    public var currentTranscript: MeetingTranscript? {
+        get {
+            if let id = selectedTranscriptId {
+                return transcripts.first { $0.id == id }
+            }
+            return transcripts.first
+        }
+        set {
+            guard let val = newValue else { return }
+            if let idx = transcripts.firstIndex(where: { $0.id == val.id }) {
+                transcripts[idx] = val
+            } else {
+                transcripts.insert(val, at: 0)
+            }
+            selectedTranscriptId = val.id
+            TranscriptStore.shared.save(transcript: val)
+        }
+    }
+
+    public var filteredTranscripts: [MeetingTranscript] {
+        let q = searchQuery.trimmingCharacters(in: .whitespacesAndNewlines).lowercased()
+        if q.isEmpty { return transcripts }
+        return transcripts.filter { t in
+            t.title.lowercased().contains(q) ||
+            t.speakers.contains { $0.assignedName.lowercased().contains(q) } ||
+            t.segments.contains { $0.text.lowercased().contains(q) }
+        }
+    }
 
     public let speakerRegistry = SpeakerRegistry()
     private let audioCoordinator = AudioCaptureCoordinator()
@@ -24,6 +54,9 @@ public final class AppState: ObservableObject {
     private var recordingStartTime: Date?
 
     public init() {
+        self.transcripts = TranscriptStore.shared.loadAll()
+        self.selectedTranscriptId = self.transcripts.first?.id
+
         Task {
             statusMessage = "Modellen aan het voorbereiden..."
             do {
@@ -77,6 +110,7 @@ public final class AppState: ObservableObject {
 
         status = .transcribing(stage: "Parakeet v3 & Diarization...")
         statusMessage = "Bezig met lokale transcriptie & sprekerherkenning..."
+        WindowManager.shared.showMainWindow(appState: self)
 
         Task {
             do {
@@ -87,7 +121,7 @@ public final class AppState: ObservableObject {
                 self.currentTranscript = transcript
                 self.status = .reviewReady
                 self.statusMessage = "Transcriptie voltooid!"
-                WindowManager.shared.showReviewWindow(appState: self)
+                WindowManager.shared.showMainWindow(appState: self)
             } catch {
                 self.status = .idle
                 self.statusMessage = "Fout tijdens transcriptie: \(error.localizedDescription)"
@@ -120,7 +154,7 @@ public final class AppState: ObservableObject {
     public func importAudioFile(url: URL) {
         status = .transcribing(stage: "Parakeet v3 & Diarization...")
         statusMessage = "Audiobestand transcriberen (\(url.lastPathComponent))..."
-        WindowManager.shared.showReviewWindow(appState: self)
+        WindowManager.shared.showMainWindow(appState: self)
 
         Task {
             do {
@@ -131,7 +165,7 @@ public final class AppState: ObservableObject {
                 self.currentTranscript = transcript
                 self.status = .reviewReady
                 self.statusMessage = "Transcriptie voltooid voor: \(url.lastPathComponent)"
-                WindowManager.shared.showReviewWindow(appState: self)
+                WindowManager.shared.showMainWindow(appState: self)
             } catch {
                 self.status = .idle
                 self.statusMessage = "Fout bij bestandstranscriptie: \(error.localizedDescription)"
@@ -163,6 +197,14 @@ public final class AppState: ObservableObject {
         }
 
         self.currentTranscript = transcript
+    }
+
+    public func deleteTranscript(id: String) {
+        transcripts.removeAll { $0.id == id }
+        TranscriptStore.shared.delete(id: id)
+        if selectedTranscriptId == id {
+            selectedTranscriptId = transcripts.first?.id
+        }
     }
 
     public func exportCurrentTranscript() -> URL? {

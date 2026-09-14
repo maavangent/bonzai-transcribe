@@ -74,7 +74,7 @@ struct MenuBarPopupView: View {
 
             case .reviewReady:
                 Button {
-                    WindowManager.shared.showReviewWindow(appState: appState)
+                    WindowManager.shared.showMainWindow(appState: appState)
                 } label: {
                     HStack {
                         Image(systemName: "doc.text.badge.plus")
@@ -92,7 +92,7 @@ struct MenuBarPopupView: View {
             // Quick Actions
             VStack(spacing: 6) {
                 Button {
-                    WindowManager.shared.showReviewWindow(appState: appState)
+                    WindowManager.shared.showMainWindow(appState: appState)
                 } label: {
                     HStack {
                         Image(systemName: "doc.text")
