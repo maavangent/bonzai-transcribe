@@ -1,5 +1,6 @@
 import Foundation
 import SwiftUI
+import AppKit
 import MeetingTranscriberCore
 
 @MainActor
@@ -88,9 +89,46 @@ public final class AppState: ObservableObject {
                 self.status = .reviewReady
                 self.statusMessage = "Transcriptie voltooid!"
                 self.isReviewWindowOpen = true
+                NSApp.activate(ignoringOtherApps: true)
             } catch {
                 self.status = .idle
                 self.statusMessage = "Fout tijdens transcriptie: \(error.localizedDescription)"
+            }
+        }
+    }
+
+    public func selectAndTranscribeFile() {
+        let panel = NSOpenPanel()
+        panel.canChooseFiles = true
+        panel.canChooseDirectories = false
+        panel.allowsMultipleSelection = false
+        panel.allowedContentTypes = [.audio, .mp3, .mpeg4Audio, .wav, .aiff]
+        panel.title = "Kies een audiobestand om te transcriberen"
+
+        NSApp.activate(ignoringOtherApps: true)
+        if panel.runModal() == .OK, let url = panel.url {
+            importAudioFile(url: url)
+        }
+    }
+
+    public func importAudioFile(url: URL) {
+        status = .transcribing(stage: "Parakeet v3 & Diarization...")
+        statusMessage = "Audiobestand transcriberen (\(url.lastPathComponent))..."
+
+        Task {
+            do {
+                let transcript = try await pipeline.processAudioFile(
+                    url: url,
+                    speakerRegistry: speakerRegistry
+                )
+                self.currentTranscript = transcript
+                self.status = .reviewReady
+                self.statusMessage = "Transcriptie voltooid voor: \(url.lastPathComponent)"
+                self.isReviewWindowOpen = true
+                NSApp.activate(ignoringOtherApps: true)
+            } catch {
+                self.status = .idle
+                self.statusMessage = "Fout bij bestandstranscriptie: \(error.localizedDescription)"
             }
         }
     }

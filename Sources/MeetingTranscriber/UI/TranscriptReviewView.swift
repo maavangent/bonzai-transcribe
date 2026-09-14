@@ -41,15 +41,25 @@ struct TranscriptReviewView: View {
                     .padding()
                     .background(Color(NSColor.windowBackgroundColor))
             } else {
-                VStack(spacing: 12) {
-                    Image(systemName: "waveform.slash")
-                        .font(.system(size: 40))
-                        .foregroundColor(.secondary)
+                VStack(spacing: 16) {
+                    Image(systemName: "waveform.badge.mic")
+                        .font(.system(size: 48))
+                        .foregroundColor(.accentColor)
                     Text("Geen actieve meeting transcriptie")
-                        .font(.headline)
-                    Text("Start een opname vanuit de menubalk om een transcript te genereren.")
+                        .font(.title3.bold())
+                    Text("Start een opname vanuit de menubalk of kies een bestaand audiobestand om direct lokaal te transcriberen en sprekers te scheiden.")
                         .font(.subheadline)
                         .foregroundColor(.secondary)
+                        .multilineTextAlignment(.center)
+                        .frame(maxWidth: 400)
+
+                    Button {
+                        appState.selectAndTranscribeFile()
+                    } label: {
+                        Label("Kies Audiobestand (.m4a, .mp3, .wav, .caf)", systemImage: "square.and.arrow.down")
+                    }
+                    .buttonStyle(.borderedProminent)
+                    .controlSize(.large)
                 }
                 .frame(maxWidth: .infinity, maxHeight: .infinity)
                 .padding()

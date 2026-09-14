@@ -107,6 +107,17 @@ struct MenuBarPopupView: View {
                 }
 
                 Button {
+                    appState.selectAndTranscribeFile()
+                } label: {
+                    HStack {
+                        Image(systemName: "square.and.arrow.down")
+                        Text("Audiobestand transcriberen...")
+                        Spacer()
+                    }
+                }
+                .buttonStyle(.plain)
+
+                Button {
                     openWindow(id: "speaker-profiles")
                 } label: {
                     HStack {

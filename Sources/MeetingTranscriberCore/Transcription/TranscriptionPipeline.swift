@@ -130,6 +130,56 @@ public final class TranscriptionPipeline: @unchecked Sendable {
         )
     }
 
+    /// Process a standalone audio file (e.g. dropped/imported meeting recording)
+    public func processAudioFile(
+        url: URL,
+        speakerRegistry: SpeakerRegistry,
+        title: String? = nil
+    ) async throws -> MeetingTranscript {
+        guard isReady, let asrManager, let diarizerManager else {
+            throw PipelineError.notPrepared
+        }
+
+        guard FileManager.default.fileExists(atPath: url.path) else {
+            throw PipelineError.audioUnreadable(url)
+        }
+
+        let meetingTitle = title ?? url.deletingPathExtension().lastPathComponent
+
+        // 1. Run Core ML Speaker Diarization
+        let diarizationResult = try await diarizerManager.process(url)
+
+        // 2. Run Parakeet v3 ASR
+        var decoderState = try TdtDecoderState()
+        let asrResult = try await asrManager.transcribe(url, decoderState: &decoderState)
+        let words = buildWordTimings(from: asrResult.tokenTimings ?? [])
+
+        // 3. Extract & Match Speakers against Stored Profiles
+        let detectedSpeakers = extractSpeakers(
+            diarizationResult: diarizationResult,
+            speakerRegistry: speakerRegistry
+        )
+
+        // 4. Align Words to Speakers
+        let segments = alignWordsWithDiarization(
+            words: words,
+            timeOffset: 0.0,
+            diarizationSegments: diarizationResult.segments,
+            speakers: detectedSpeakers
+        )
+
+        let duration = segments.last?.end ?? 0.0
+
+        return MeetingTranscript(
+            id: UUID().uuidString,
+            title: meetingTitle,
+            date: Date(),
+            duration: duration,
+            segments: segments,
+            speakers: detectedSpeakers
+        )
+    }
+
     // MARK: - Alignment & Segmentation Helpers
 
     private func extractSpeakers(
