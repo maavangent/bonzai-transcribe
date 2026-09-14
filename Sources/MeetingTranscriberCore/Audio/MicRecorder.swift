@@ -24,7 +24,7 @@ public final class MicRecorder: @unchecked Sendable {
 
     public init() {}
 
-    public func start(writingTo url: URL, voiceProcessing: Bool = true) throws {
+    public func start(writingTo url: URL, voiceProcessing: Bool = false) throws {
         guard !isRecording else { return }
         self.url = url
         try attach(voiceProcessing: voiceProcessing)

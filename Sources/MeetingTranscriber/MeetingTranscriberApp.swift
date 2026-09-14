@@ -4,15 +4,15 @@ import MeetingTranscriberCore
 @main
 struct MeetingTranscriberApp: App {
     @StateObject private var appState = AppState()
-    @Environment(\.openWindow) private var openWindow
 
     var body: some Scene {
-        // Menubar Interface
+        // Menubar Interface with Window Style (Live reactive popup)
         MenuBarExtra {
-            menuBarContent
+            MenuBarPopupView(appState: appState)
         } label: {
             menuBarLabel
         }
+        .menuBarExtraStyle(.window)
 
         // Review Window
         Window("Meeting Transcript Review", id: "transcript-review") {
@@ -39,61 +39,6 @@ struct MeetingTranscriberApp: App {
             Image(systemName: "arrow.triangle.2.circlepath")
         case .reviewReady:
             Image(systemName: "doc.text.badge.plus")
-        }
-    }
-
-    @ViewBuilder
-    private var menuBarContent: some View {
-        VStack {
-            switch appState.status {
-            case .idle:
-                Text("Klaar voor opname")
-                    .font(.caption)
-                    .foregroundColor(.secondary)
-                Divider()
-                Button("Start Meeting Opname") {
-                    appState.startRecording()
-                }
-                .keyboardShortcut("r", modifiers: [.command, .shift])
-
-            case .recording(let elapsed):
-                Text("🔴 Opname actief: \(ObsidianExporter.formatTimestamp(elapsed))")
-                    .font(.caption.bold())
-                Divider()
-                Button("Stop Opname & Transcribeer") {
-                    appState.stopRecording()
-                }
-                .keyboardShortcut("s", modifiers: [.command, .shift])
-
-            case .transcribing(let stage):
-                Text("⚡ Transcriberen...")
-                    .font(.caption.bold())
-                Text(stage)
-                    .font(.caption2)
-                    .foregroundColor(.secondary)
-
-            case .reviewReady:
-                Text("✅ Transcriptie gereed!")
-                    .font(.caption.bold())
-                Divider()
-                Button("Open Transcript Review") {
-                    openWindow(id: "transcript-review")
-                }
-                .keyboardShortcut("o", modifiers: [.command, .shift])
-            }
-
-            Divider()
-
-            Button("Stemprofielen Beheren...") {
-                openWindow(id: "speaker-profiles")
-            }
-
-            Divider()
-
-            Button("Afsluiten") {
-                NSApplication.shared.terminate(nil)
-            }
-            .keyboardShortcut("q", modifiers: [.command])
         }
     }
 }
