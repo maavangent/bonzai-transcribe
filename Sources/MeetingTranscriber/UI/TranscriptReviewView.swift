@@ -1,10 +1,12 @@
 import SwiftUI
+import UniformTypeIdentifiers
 import MeetingTranscriberCore
 
 struct TranscriptReviewView: View {
     @ObservedObject var appState: AppState
     @State private var copiedToClipboard = false
     @State private var exportedURL: URL?
+    @State private var isDragTargeted = false
 
     var body: some View {
         VStack(spacing: 0) {
@@ -41,31 +43,63 @@ struct TranscriptReviewView: View {
                     .padding()
                     .background(Color(NSColor.windowBackgroundColor))
             } else {
-                VStack(spacing: 16) {
-                    Image(systemName: "waveform.badge.mic")
-                        .font(.system(size: 48))
-                        .foregroundColor(.accentColor)
-                    Text("Geen actieve meeting transcriptie")
-                        .font(.title3.bold())
-                    Text("Start een opname vanuit de menubalk of kies een bestaand audiobestand om direct lokaal te transcriberen en sprekers te scheiden.")
-                        .font(.subheadline)
-                        .foregroundColor(.secondary)
-                        .multilineTextAlignment(.center)
-                        .frame(maxWidth: 400)
-
-                    Button {
-                        appState.selectAndTranscribeFile()
-                    } label: {
-                        Label("Kies Audiobestand (.m4a, .mp3, .wav, .caf)", systemImage: "square.and.arrow.down")
-                    }
-                    .buttonStyle(.borderedProminent)
-                    .controlSize(.large)
-                }
-                .frame(maxWidth: .infinity, maxHeight: .infinity)
-                .padding()
+                emptyStateDropZone
             }
         }
         .frame(minWidth: 700, minHeight: 550)
+        .dropDestination(for: URL.self) { items, _ in
+            guard let url = items.first else { return false }
+            let validExts = ["m4a", "mp3", "wav", "caf", "aac", "aiff", "flac", "ogg"]
+            if validExts.contains(url.pathExtension.lowercased()) {
+                appState.importAudioFile(url: url)
+                return true
+            }
+            return false
+        } isTargeted: { targeted in
+            isDragTargeted = targeted
+        }
+    }
+
+    // MARK: - Empty State / Drop Zone
+    private var emptyStateDropZone: some View {
+        VStack(spacing: 20) {
+            ZStack {
+                Circle()
+                    .fill(isDragTargeted ? Color.accentColor.opacity(0.2) : Color.secondary.opacity(0.1))
+                    .frame(width: 100, height: 100)
+
+                Image(systemName: isDragTargeted ? "arrow.down.doc.fill" : "waveform.badge.mic")
+                    .font(.system(size: 44))
+                    .foregroundColor(.accentColor)
+            }
+
+            VStack(spacing: 6) {
+                Text(isDragTargeted ? "Laat maar vallen!" : "Sleep audiobestand hierheen")
+                    .font(.title3.bold())
+                Text("Ondersteunt .m4a, .mp3, .wav, .caf, .aac — sprekers worden direct lokaal gescheiden.")
+                    .font(.subheadline)
+                    .foregroundColor(.secondary)
+                    .multilineTextAlignment(.center)
+                    .frame(maxWidth: 420)
+            }
+
+            HStack(spacing: 12) {
+                Button {
+                    appState.selectAndTranscribeFile()
+                } label: {
+                    Label("Of kies een bestand...", systemImage: "folder")
+                }
+                .buttonStyle(.borderedProminent)
+                .controlSize(.large)
+            }
+        }
+        .frame(maxWidth: .infinity, maxHeight: .infinity)
+        .padding(40)
+        .background(
+            RoundedRectangle(cornerRadius: 12)
+                .strokeBorder(isDragTargeted ? Color.accentColor : Color.secondary.opacity(0.3), style: StrokeStyle(lineWidth: isDragTargeted ? 3 : 2, dash: [8]))
+                .padding(24)
+        )
     }
 
     // MARK: - Header
@@ -83,6 +117,13 @@ struct TranscriptReviewView: View {
                 .foregroundColor(.secondary)
             }
             Spacer()
+            
+            Button {
+                appState.selectAndTranscribeFile()
+            } label: {
+                Label("Ander bestand...", systemImage: "arrow.triangle.2.circlepath")
+            }
+            .buttonStyle(.bordered)
         }
     }
 
