@@ -59,7 +59,8 @@ public final class AppState: ObservableObject {
                 }
             }
         } catch {
-            statusMessage = "Kon opname niet starten: \(error.localizedDescription)"
+            print("❌ Start recording failed: \(error)")
+            statusMessage = "Kon opname niet starten: \(error)"
         }
     }
 
