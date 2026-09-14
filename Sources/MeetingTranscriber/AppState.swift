@@ -15,7 +15,6 @@ public final class AppState: ObservableObject {
     @Published public var status: RecordingStatus = .idle
     @Published public var currentTranscript: MeetingTranscript?
     @Published public var statusMessage: String = "Klaar voor opname"
-    @Published public var isReviewWindowOpen: Bool = false
     @Published public var recentTranscripts: [MeetingTranscript] = []
 
     public let speakerRegistry = SpeakerRegistry()
@@ -88,8 +87,7 @@ public final class AppState: ObservableObject {
                 self.currentTranscript = transcript
                 self.status = .reviewReady
                 self.statusMessage = "Transcriptie voltooid!"
-                self.isReviewWindowOpen = true
-                NSApp.activate(ignoringOtherApps: true)
+                WindowManager.shared.showReviewWindow(appState: self)
             } catch {
                 self.status = .idle
                 self.statusMessage = "Fout tijdens transcriptie: \(error.localizedDescription)"
@@ -98,22 +96,31 @@ public final class AppState: ObservableObject {
     }
 
     public func selectAndTranscribeFile() {
-        let panel = NSOpenPanel()
-        panel.canChooseFiles = true
-        panel.canChooseDirectories = false
-        panel.allowsMultipleSelection = false
-        panel.allowedContentTypes = [.audio, .mp3, .mpeg4Audio, .wav, .aiff]
-        panel.title = "Kies een audiobestand om te transcriberen"
+        DispatchQueue.main.async {
+            NSApp.activate(ignoringOtherApps: true)
+            let panel = NSOpenPanel()
+            panel.canChooseFiles = true
+            panel.canChooseDirectories = false
+            panel.allowsMultipleSelection = false
+            panel.allowedContentTypes = [.audio, .mp3, .mpeg4Audio, .wav, .aiff]
+            panel.title = "Kies een audiobestand om te transcriberen"
+            panel.level = .floating
 
-        NSApp.activate(ignoringOtherApps: true)
-        if panel.runModal() == .OK, let url = panel.url {
-            importAudioFile(url: url)
+            panel.begin { [weak self] response in
+                guard let self = self else { return }
+                if response == .OK, let url = panel.url {
+                    Task { @MainActor in
+                        self.importAudioFile(url: url)
+                    }
+                }
+            }
         }
     }
 
     public func importAudioFile(url: URL) {
         status = .transcribing(stage: "Parakeet v3 & Diarization...")
         statusMessage = "Audiobestand transcriberen (\(url.lastPathComponent))..."
+        WindowManager.shared.showReviewWindow(appState: self)
 
         Task {
             do {
@@ -124,8 +131,7 @@ public final class AppState: ObservableObject {
                 self.currentTranscript = transcript
                 self.status = .reviewReady
                 self.statusMessage = "Transcriptie voltooid voor: \(url.lastPathComponent)"
-                self.isReviewWindowOpen = true
-                NSApp.activate(ignoringOtherApps: true)
+                WindowManager.shared.showReviewWindow(appState: self)
             } catch {
                 self.status = .idle
                 self.statusMessage = "Fout bij bestandstranscriptie: \(error.localizedDescription)"

@@ -3,7 +3,6 @@ import MeetingTranscriberCore
 
 struct MenuBarPopupView: View {
     @ObservedObject var appState: AppState
-    @Environment(\.openWindow) private var openWindow
 
     var body: some View {
         VStack(spacing: 12) {
@@ -75,7 +74,7 @@ struct MenuBarPopupView: View {
 
             case .reviewReady:
                 Button {
-                    openWindow(id: "transcript-review")
+                    WindowManager.shared.showReviewWindow(appState: appState)
                 } label: {
                     HStack {
                         Image(systemName: "doc.text.badge.plus")
@@ -92,33 +91,31 @@ struct MenuBarPopupView: View {
 
             // Quick Actions
             VStack(spacing: 6) {
-                if appState.currentTranscript != nil {
-                    Button {
-                        openWindow(id: "transcript-review")
-                    } label: {
-                        HStack {
-                            Image(systemName: "doc.text")
-                            Text("Laatste transcript bekijken")
-                            Spacer()
-                            Text("⇧⌘O").font(.caption2).foregroundColor(.secondary)
-                        }
+                Button {
+                    WindowManager.shared.showReviewWindow(appState: appState)
+                } label: {
+                    HStack {
+                        Image(systemName: "doc.text")
+                        Text("Transcript venster openen")
+                        Spacer()
+                        Text("⇧⌘O").font(.caption2).foregroundColor(.secondary)
                     }
-                    .buttonStyle(.plain)
                 }
+                .buttonStyle(.plain)
 
                 Button {
                     appState.selectAndTranscribeFile()
                 } label: {
                     HStack {
                         Image(systemName: "square.and.arrow.down")
-                        Text("Audiobestand transcriberen...")
+                        Text("Audiobestand importeren...")
                         Spacer()
                     }
                 }
                 .buttonStyle(.plain)
 
                 Button {
-                    openWindow(id: "speaker-profiles")
+                    WindowManager.shared.showSpeakerWindow(appState: appState)
                 } label: {
                     HStack {
                         Image(systemName: "person.2")
