@@ -116,17 +116,19 @@ public final class TranscriptionPipeline: @unchecked Sendable {
             }
         }
 
-        // 3. Sort all segments chronologically
+        // 3. Sort & Consolidate segments chronologically
         allSegments.sort { $0.start < $1.start }
+        let consolidatedSegments = consolidateSegments(allSegments)
 
         let duration = (session.endedAt ?? Date()).timeIntervalSince(session.startedAt)
         return MeetingTranscript(
             id: session.id,
             title: session.id,
             date: session.startedAt,
-            duration: max(duration, allSegments.last?.end ?? 0.0),
-            segments: allSegments,
-            speakers: meetingSpeakers
+            duration: max(duration, consolidatedSegments.last?.end ?? 0.0),
+            segments: consolidatedSegments,
+            speakers: meetingSpeakers,
+            sourceAudioURL: session.systemAudioURL
         )
     }
 
@@ -161,23 +163,55 @@ public final class TranscriptionPipeline: @unchecked Sendable {
         )
 
         // 4. Align Words to Speakers
-        let segments = alignWordsWithDiarization(
+        let rawSegments = alignWordsWithDiarization(
             words: words,
             timeOffset: 0.0,
             diarizationSegments: diarizationResult.segments,
             speakers: detectedSpeakers
         )
 
-        let duration = segments.last?.end ?? 0.0
+        // 5. Consolidate consecutive fragments into readable paragraphs
+        let consolidatedSegments = consolidateSegments(rawSegments)
+
+        let duration = consolidatedSegments.last?.end ?? 0.0
 
         return MeetingTranscript(
             id: UUID().uuidString,
             title: meetingTitle,
             date: Date(),
             duration: duration,
-            segments: segments,
-            speakers: detectedSpeakers
+            segments: consolidatedSegments,
+            speakers: detectedSpeakers,
+            sourceAudioURL: url
         )
+    }
+
+    // MARK: - Smart Segment Consolidation
+
+    /// Merges consecutive short fragments from the same speaker into cohesive, readable paragraphs
+    public func consolidateSegments(_ segments: [TranscriptSegment]) -> [TranscriptSegment] {
+        guard !segments.isEmpty else { return [] }
+
+        var consolidated: [TranscriptSegment] = []
+
+        for seg in segments {
+            if let last = consolidated.last,
+               last.speakerId == seg.speakerId,
+               (seg.start - last.end) < 4.0 { // Allow natural pauses up to 4s
+                
+                var updated = last
+                updated.end = seg.end
+                let combinedText = last.text + " " + seg.text
+                updated.text = combinedText.trimmingCharacters(in: .whitespacesAndNewlines)
+                updated.words.append(contentsOf: seg.words)
+                
+                consolidated[consolidated.count - 1] = updated
+            } else {
+                consolidated.append(seg)
+            }
+        }
+
+        return consolidated
     }
 
     // MARK: - Alignment & Segmentation Helpers
@@ -205,6 +239,10 @@ public final class TranscriptionPipeline: @unchecked Sendable {
                 confidence = match.confidence
             }
 
+            // Find best sample segment for audio playback (>2s, or longest)
+            let spkSegments = diarizationResult.segments.filter { $0.speakerId == spkId }
+            let longestSeg = spkSegments.max { ($0.endTimeSeconds - $0.startTimeSeconds) < ($1.endTimeSeconds - $1.startTimeSeconds) }
+
             let spk = MeetingSpeaker(
                 id: spkId,
                 label: label,
@@ -212,7 +250,9 @@ public final class TranscriptionPipeline: @unchecked Sendable {
                 suggestedName: suggestedName,
                 confidence: confidence,
                 isConfirmed: suggestedName != nil,
-                embedding: embedding
+                embedding: embedding,
+                sampleStart: longestSeg != nil ? Double(longestSeg!.startTimeSeconds) : nil,
+                sampleDuration: longestSeg != nil ? Double(longestSeg!.endTimeSeconds - longestSeg!.startTimeSeconds) : nil
             )
             speakers.append(spk)
         }
@@ -318,7 +358,7 @@ public final class TranscriptionPipeline: @unchecked Sendable {
                 end: word.endTime + timeOffset
             )
 
-            if let last = currentWords.last, shifted.start - last.end > 1.2 {
+            if let last = currentWords.last, shifted.start - last.end > 2.0 {
                 flush()
             }
             currentWords.append(shifted)

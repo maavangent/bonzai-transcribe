@@ -10,8 +10,6 @@
     <string>APPL</string>
     <key>CFBundleShortVersionString</key>
     <string>1.0.0</string>
-    <key>LSUIElement</key>
-    <true/>
     <key>NSMicrophoneUsageDescription</key>
     <string>MeetingTranscriber heeft toegang tot je microfoon nodig om je eigen stem op te nemen tijdens meetings.</string>
 </dict>

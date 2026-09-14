@@ -1,9 +1,9 @@
 import Foundation
 
 public struct TranscriptWord: Codable, Sendable {
-    public let word: String
-    public let start: TimeInterval
-    public let end: TimeInterval
+    public var word: String
+    public var start: TimeInterval
+    public var end: TimeInterval
 
     public init(word: String, start: TimeInterval, end: TimeInterval) {
         self.word = word
@@ -13,12 +13,12 @@ public struct TranscriptWord: Codable, Sendable {
 }
 
 public struct TranscriptSegment: Codable, Identifiable, Sendable {
-    public let id: UUID
+    public var id: UUID
     public var speakerId: String
     public var speakerName: String
     public var confidence: Float
-    public let start: TimeInterval
-    public let end: TimeInterval
+    public var start: TimeInterval
+    public var end: TimeInterval
     public var text: String
     public var words: [TranscriptWord]
 
@@ -51,6 +51,8 @@ public struct MeetingSpeaker: Codable, Identifiable, Sendable {
     public var confidence: Float // e.g. 0.91
     public var isConfirmed: Bool
     public var embedding: [Float]?
+    public var sampleStart: TimeInterval? // Timestamp of a representative clean speech sample
+    public var sampleDuration: TimeInterval?
 
     public init(
         id: String,
@@ -59,7 +61,9 @@ public struct MeetingSpeaker: Codable, Identifiable, Sendable {
         suggestedName: String? = nil,
         confidence: Float = 1.0,
         isConfirmed: Bool = false,
-        embedding: [Float]? = nil
+        embedding: [Float]? = nil,
+        sampleStart: TimeInterval? = nil,
+        sampleDuration: TimeInterval? = nil
     ) {
         self.id = id
         self.label = label
@@ -68,6 +72,8 @@ public struct MeetingSpeaker: Codable, Identifiable, Sendable {
         self.confidence = confidence
         self.isConfirmed = isConfirmed
         self.embedding = embedding
+        self.sampleStart = sampleStart
+        self.sampleDuration = sampleDuration
     }
 }
 
@@ -78,6 +84,7 @@ public struct MeetingTranscript: Codable, Identifiable, Sendable {
     public var duration: TimeInterval
     public var segments: [TranscriptSegment]
     public var speakers: [MeetingSpeaker]
+    public var sourceAudioURL: URL?
 
     public init(
         id: String,
@@ -85,7 +92,8 @@ public struct MeetingTranscript: Codable, Identifiable, Sendable {
         date: Date = Date(),
         duration: TimeInterval = 0.0,
         segments: [TranscriptSegment] = [],
-        speakers: [MeetingSpeaker] = []
+        speakers: [MeetingSpeaker] = [],
+        sourceAudioURL: URL? = nil
     ) {
         self.id = id
         self.title = title
@@ -93,5 +101,6 @@ public struct MeetingTranscript: Codable, Identifiable, Sendable {
         self.duration = duration
         self.segments = segments
         self.speakers = speakers
+        self.sourceAudioURL = sourceAudioURL
     }
 }

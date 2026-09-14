@@ -4,13 +4,17 @@ import MeetingTranscriberCore
 
 struct TranscriptReviewView: View {
     @ObservedObject var appState: AppState
+    @StateObject private var audioPlayer = AudioPlayerManager.shared
     @State private var copiedToClipboard = false
     @State private var exportedURL: URL?
     @State private var isDragTargeted = false
 
     var body: some View {
         VStack(spacing: 0) {
-            if let transcript = appState.currentTranscript {
+            if case .transcribing(let stage) = appState.status {
+                // Active Transcription Progress Screen
+                transcribingProgressView(stage: stage)
+            } else if let transcript = appState.currentTranscript {
                 // Header
                 headerView(transcript: transcript)
                     .padding()
@@ -18,7 +22,7 @@ struct TranscriptReviewView: View {
 
                 Divider()
 
-                // Speakers bar
+                // Speakers bar with voice preview play buttons
                 speakersVerificationSection(transcript: transcript)
                     .padding(.horizontal)
                     .padding(.vertical, 12)
@@ -26,11 +30,11 @@ struct TranscriptReviewView: View {
 
                 Divider()
 
-                // Transcript segments
+                // Transcript segments with consolidated text & playback
                 ScrollView {
-                    LazyVStack(alignment: .leading, spacing: 16) {
+                    LazyVStack(alignment: .leading, spacing: 14) {
                         ForEach(transcript.segments) { segment in
-                            segmentRow(segment: segment)
+                            segmentRow(segment: segment, sourceAudioURL: transcript.sourceAudioURL)
                         }
                     }
                     .padding()
@@ -46,10 +50,10 @@ struct TranscriptReviewView: View {
                 emptyStateDropZone
             }
         }
-        .frame(minWidth: 700, minHeight: 550)
+        .frame(minWidth: 780, minHeight: 580)
         .dropDestination(for: URL.self) { items, _ in
             guard let url = items.first else { return false }
-            let validExts = ["m4a", "mp3", "wav", "caf", "aac", "aiff", "flac", "ogg"]
+            let validExts = ["m4a", "mp3", "wav", "caf", "aac", "aiff", "flac", "ogg", "qta"]
             if validExts.contains(url.pathExtension.lowercased()) {
                 appState.importAudioFile(url: url)
                 return true
@@ -58,6 +62,46 @@ struct TranscriptReviewView: View {
         } isTargeted: { targeted in
             isDragTargeted = targeted
         }
+    }
+
+    // MARK: - Transcribing Progress Screen
+    private func transcribingProgressView(stage: String) -> some View {
+        VStack(spacing: 24) {
+            ZStack {
+                Circle()
+                    .stroke(Color.accentColor.opacity(0.2), lineWidth: 6)
+                    .frame(width: 80, height: 80)
+                
+                ProgressView()
+                    .scaleEffect(1.5)
+            }
+
+            VStack(spacing: 8) {
+                Text("Meeting Wordt Verwerkt...")
+                    .font(.title2.bold())
+                Text(appState.statusMessage)
+                    .font(.body)
+                    .foregroundColor(.secondary)
+                    .multilineTextAlignment(.center)
+                    .frame(maxWidth: 450)
+            }
+
+            HStack(spacing: 16) {
+                Label("Parakeet v3 ASR", systemImage: "bolt.fill")
+                Text("•").foregroundColor(.secondary)
+                Label("PyAnnote Diarization", systemImage: "person.2.fill")
+                Text("•").foregroundColor(.secondary)
+                Label("Apple Neural Engine", systemImage: "cpu.fill")
+            }
+            .font(.caption)
+            .foregroundColor(.secondary)
+            .padding(.horizontal, 16)
+            .padding(.vertical, 8)
+            .background(Color(NSColor.controlBackgroundColor))
+            .cornerRadius(20)
+        }
+        .frame(maxWidth: .infinity, maxHeight: .infinity)
+        .padding()
     }
 
     // MARK: - Empty State / Drop Zone
@@ -117,7 +161,7 @@ struct TranscriptReviewView: View {
                 .foregroundColor(.secondary)
             }
             Spacer()
-            
+
             Button {
                 appState.selectAndTranscribeFile()
             } label: {
@@ -127,27 +171,53 @@ struct TranscriptReviewView: View {
         }
     }
 
-    // MARK: - Speakers Verification Section
+    // MARK: - Speakers Verification Section with Audio Preview
     private func speakersVerificationSection(transcript: MeetingTranscript) -> some View {
         VStack(alignment: .leading, spacing: 10) {
-            Text("Sprekers & Stemprofielen")
-                .font(.headline)
+            HStack {
+                Text("Sprekers & Stemprofielen")
+                    .font(.headline)
+                Text("(Klik op ▶ om de stem te beluisteren)")
+                    .font(.caption)
+                    .foregroundColor(.secondary)
+            }
 
             ScrollView(.horizontal, showsIndicators: false) {
                 HStack(spacing: 12) {
                     ForEach(transcript.speakers) { speaker in
-                        speakerCard(speaker: speaker)
+                        speakerCard(speaker: speaker, sourceAudioURL: transcript.sourceAudioURL)
                     }
                 }
             }
         }
     }
 
-    private func speakerCard(speaker: MeetingSpeaker) -> some View {
-        HStack(spacing: 10) {
-            Circle()
-                .fill(speaker.isConfirmed ? Color.green : (speaker.suggestedName != nil ? Color.blue : Color.orange))
-                .frame(width: 10, height: 10)
+    private func speakerCard(speaker: MeetingSpeaker, sourceAudioURL: URL?) -> some View {
+        let isCurrentlyPlaying = audioPlayer.isPlaying && audioPlayer.currentlyPlayingId == "speaker_\(speaker.id)"
+
+        return HStack(spacing: 10) {
+            // Play Audio Sample Button
+            if let audioURL = sourceAudioURL, let start = speaker.sampleStart {
+                Button {
+                    let dur = min(speaker.sampleDuration ?? 6.0, 8.0)
+                    audioPlayer.playAudio(
+                        from: audioURL,
+                        startTime: start,
+                        duration: max(3.0, dur),
+                        playbackId: "speaker_\(speaker.id)"
+                    )
+                } label: {
+                    Image(systemName: isCurrentlyPlaying ? "stop.circle.fill" : "play.circle.fill")
+                        .font(.title3)
+                        .foregroundColor(isCurrentlyPlaying ? .red : .accentColor)
+                }
+                .buttonStyle(.plain)
+                .help("Beluister fragment van \(speaker.assignedName)")
+            } else {
+                Circle()
+                    .fill(speaker.isConfirmed ? Color.green : (speaker.suggestedName != nil ? Color.blue : Color.orange))
+                    .frame(width: 10, height: 10)
+            }
 
             VStack(alignment: .leading, spacing: 2) {
                 HStack(spacing: 6) {
@@ -188,6 +258,7 @@ struct TranscriptReviewView: View {
                     Image(systemName: "pencil")
                 }
                 .buttonStyle(.borderless)
+                .help("Naam wijzigen")
             }
         }
         .padding(.horizontal, 12)
@@ -196,31 +267,55 @@ struct TranscriptReviewView: View {
         .cornerRadius(8)
         .overlay(
             RoundedRectangle(cornerRadius: 8)
-                .stroke(Color.secondary.opacity(0.2), lineWidth: 1)
+                .stroke(isCurrentlyPlaying ? Color.accentColor : Color.secondary.opacity(0.2), lineWidth: isCurrentlyPlaying ? 2 : 1)
         )
     }
 
-    // MARK: - Segment Row
-    private func segmentRow(segment: TranscriptSegment) -> some View {
-        HStack(alignment: .top, spacing: 12) {
-            VStack(alignment: .leading, spacing: 2) {
-                Text(segment.speakerName)
-                    .font(.subheadline.bold())
-                    .foregroundColor(.accentColor)
-                Text("[\(ObsidianExporter.formatTimestamp(segment.start)) - \(ObsidianExporter.formatTimestamp(segment.end))]")
-                    .font(.caption)
-                    .foregroundColor(.secondary)
-            }
-            .frame(width: 140, alignment: .leading)
+    // MARK: - Consolidated Segment Row with Audio Playback
+    private func segmentRow(segment: TranscriptSegment, sourceAudioURL: URL?) -> some View {
+        let isPlayingSegment = audioPlayer.isPlaying && audioPlayer.currentlyPlayingId == "seg_\(segment.id)"
 
+        return HStack(alignment: .top, spacing: 14) {
+            // Speaker Name & Timestamp & Play button
+            HStack(spacing: 6) {
+                if let audioURL = sourceAudioURL {
+                    Button {
+                        audioPlayer.playAudio(
+                            from: audioURL,
+                            startTime: segment.start,
+                            duration: segment.end - segment.start,
+                            playbackId: "seg_\(segment.id)"
+                        )
+                    } label: {
+                        Image(systemName: isPlayingSegment ? "stop.circle.fill" : "play.circle")
+                            .font(.body)
+                            .foregroundColor(isPlayingSegment ? .red : .secondary)
+                    }
+                    .buttonStyle(.plain)
+                    .help("Beluister deze alinea")
+                }
+
+                VStack(alignment: .leading, spacing: 2) {
+                    Text(segment.speakerName)
+                        .font(.subheadline.bold())
+                        .foregroundColor(.accentColor)
+                    Text("[\(ObsidianExporter.formatTimestamp(segment.start)) - \(ObsidianExporter.formatTimestamp(segment.end))]")
+                        .font(.caption)
+                        .foregroundColor(.secondary)
+                }
+            }
+            .frame(width: 170, alignment: .leading)
+
+            // Spoken text (clean paragraph)
             Text(segment.text)
                 .font(.body)
+                .lineSpacing(4)
                 .textSelection(.enabled)
                 .frame(maxWidth: .infinity, alignment: .leading)
         }
-        .padding(10)
-        .background(Color(NSColor.controlBackgroundColor).opacity(0.3))
-        .cornerRadius(6)
+        .padding(12)
+        .background(isPlayingSegment ? Color.accentColor.opacity(0.1) : Color(NSColor.controlBackgroundColor).opacity(0.35))
+        .cornerRadius(8)
     }
 
     // MARK: - Footer
