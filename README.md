@@ -28,7 +28,7 @@ Bonzai Transcribe is a native macOS application for fast, private, on-device aud
 ### 1. Clone the Repository
 
 ```bash
-git clone https://github.com/<owner>/bonzai-transcribe.git
+git clone https://github.com/maavangent/bonzai-transcribe.git
 cd bonzai-transcribe
 ```
 
