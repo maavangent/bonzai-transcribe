@@ -3,14 +3,18 @@
 <plist version="1.0">
 <dict>
     <key>CFBundleIdentifier</key>
-    <string>com.meetingtranscriber.app</string>
+    <string>com.bonzai.transcribe</string>
     <key>CFBundleName</key>
+    <string>Bonzai Transcribe</string>
+    <key>CFBundleDisplayName</key>
+    <string>Bonzai Transcribe</string>
+    <key>CFBundleExecutable</key>
     <string>MeetingTranscriber</string>
     <key>CFBundlePackageType</key>
     <string>APPL</string>
     <key>CFBundleShortVersionString</key>
     <string>1.0.0</string>
     <key>NSMicrophoneUsageDescription</key>
-    <string>MeetingTranscriber heeft toegang tot je microfoon nodig om je eigen stem op te nemen tijdens meetings.</string>
+    <string>Bonzai Transcribe heeft toegang tot je microfoon nodig om je eigen stem op te nemen tijdens meetings.</string>
 </dict>
 </plist>

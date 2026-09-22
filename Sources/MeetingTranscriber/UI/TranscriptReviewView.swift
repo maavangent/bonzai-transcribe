@@ -15,30 +15,35 @@ struct TranscriptReviewView: View {
                 // Active Transcription Progress Screen
                 transcribingProgressView(stage: stage)
             } else if let transcript = appState.currentTranscript {
-                // Header
-                headerView(transcript: transcript)
-                    .padding()
-                    .background(Color(NSColor.windowBackgroundColor))
+                // Header and speaker verification
+                VStack(alignment: .leading, spacing: 0) {
+                    headerView(transcript: transcript)
+                        .padding(.horizontal, 24)
+                        .padding(.top, 22)
+                        .padding(.bottom, 16)
 
-                Divider()
+                    Divider()
 
-                // Speakers bar with voice preview play buttons
-                speakersVerificationSection(transcript: transcript)
-                    .padding(.horizontal)
-                    .padding(.vertical, 12)
-                    .background(Color(NSColor.controlBackgroundColor).opacity(0.5))
+                    speakersVerificationSection(transcript: transcript)
+                        .padding(.horizontal, 24)
+                        .padding(.vertical, 14)
+                }
+                .background(Color(nsColor: .windowBackgroundColor))
 
                 Divider()
 
                 // Transcript segments with consolidated text & playback
-                ScrollView {
-                    LazyVStack(alignment: .leading, spacing: 14) {
-                        ForEach(transcript.segments) { segment in
-                            segmentRow(segment: segment, sourceAudioURL: transcript.sourceAudioURL)
-                        }
+            ScrollView {
+                LazyVStack(alignment: .leading, spacing: 10) {
+                    ForEach(transcript.segments) { segment in
+                        segmentRow(segment: segment, sourceAudioURL: transcript.sourceAudioURL)
                     }
-                    .padding()
                 }
+                .frame(maxWidth: 900, alignment: .leading)
+                .padding(.horizontal, 24)
+                .padding(.vertical, 18)
+            }
+            .background(Color(nsColor: .textBackgroundColor))
 
                 Divider()
 
@@ -50,7 +55,7 @@ struct TranscriptReviewView: View {
                 emptyStateDropZone
             }
         }
-        .frame(minWidth: 780, minHeight: 580)
+        .frame(maxWidth: .infinity, maxHeight: .infinity)
         .dropDestination(for: URL.self) { items, _ in
             guard let url = items.first else { return false }
             let validExts = ["m4a", "mp3", "wav", "caf", "aac", "aiff", "flac", "ogg", "qta"]
@@ -175,11 +180,16 @@ struct TranscriptReviewView: View {
     private func speakersVerificationSection(transcript: MeetingTranscript) -> some View {
         VStack(alignment: .leading, spacing: 10) {
             HStack {
-                Text("Sprekers & Stemprofielen")
+            Text("Sprekers")
                     .font(.headline)
-                Text("(Klik op ▶ om de stem te beluisteren)")
-                    .font(.caption)
-                    .foregroundColor(.secondary)
+                Spacer()
+                if transcript.speakers.contains(where: { !$0.isConfirmed }) {
+                    Button("Verifieer") {
+                        appState.showingSpeakerProfiles = true
+                    }
+                    .buttonStyle(.bordered)
+                    .controlSize(.small)
+                }
             }
 
             ScrollView(.horizontal, showsIndicators: false) {
@@ -219,33 +229,31 @@ struct TranscriptReviewView: View {
                     .frame(width: 10, height: 10)
             }
 
-            VStack(alignment: .leading, spacing: 2) {
-                HStack(spacing: 6) {
-                    Text(speaker.assignedName)
-                        .font(.body.weight(.medium))
-                    if speaker.isConfirmed {
-                        Image(systemName: "checkmark.seal.fill")
-                            .font(.caption)
-                            .foregroundColor(.green)
-                    }
-                }
-
-                if let suggested = speaker.suggestedName, !speaker.isConfirmed {
-                    Text("Match met \(suggested) (\(Int(speaker.confidence * 100))%)")
-                        .font(.caption2)
-                        .foregroundColor(.secondary)
-                } else if speaker.embedding != nil {
-                    Text("Stemprofiel actief")
-                        .font(.caption2)
-                        .foregroundColor(.secondary)
+            VStack(alignment: .leading, spacing: 10) {
+                Text(speaker.assignedName)
+                    .font(.body.weight(.medium))
+                if speaker.isConfirmed {
+                    Label("Bevestigd", systemImage: "checkmark.circle.fill")
+                        .font(.caption)
+                        .foregroundStyle(.green)
+                } else if let suggested = speaker.suggestedName {
+                    Text("Voorstel: \(suggested) · \(Int(speaker.confidence * 100))%")
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                } else {
+                    Text("Nog niet herkend")
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
                 }
             }
 
-            if !speaker.isConfirmed && speaker.suggestedName != nil {
+            Spacer()
+
+            if let suggested = speaker.suggestedName, !speaker.isConfirmed {
                 Button("Bevestig") {
                     appState.updateSpeakerName(
                         speakerId: speaker.id,
-                        newName: speaker.suggestedName!,
+                        newName: suggested,
                         saveToProfile: true
                     )
                 }

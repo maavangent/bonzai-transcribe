@@ -3,6 +3,7 @@ import MeetingTranscriberCore
 
 struct SpeakerManagementView: View {
     @ObservedObject var appState: AppState
+    @Environment(\.dismiss) private var dismiss
     @State private var profiles: [SpeakerProfile] = []
 
     var body: some View {
@@ -16,7 +17,9 @@ struct SpeakerManagementView: View {
                         .foregroundColor(.secondary)
                 }
                 Spacer()
-                Button("Verversen") {
+                Button("Sluit") { dismiss() }
+                    .keyboardShortcut(.cancelAction)
+                Button("Ververs") {
                     loadProfiles()
                 }
             }

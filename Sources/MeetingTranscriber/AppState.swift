@@ -17,6 +17,19 @@ public final class AppState: ObservableObject {
     @Published public var selectedTranscriptId: String? = nil
     @Published public var searchQuery: String = ""
     @Published public var statusMessage: String = "Klaar voor opname"
+    @Published public var audioSources: [AudioSourceApp] = []
+    @Published public var showingCaptureSources = false
+    @Published public var showingSpeakerProfiles = false
+
+    public var enabledAudioSourceNames: String {
+        let enabled = audioSources.filter(\.isEnabled).map(\.name)
+        return enabled.isEmpty ? "Alleen microfoon" : enabled.joined(separator: ", ")
+    }
+
+    public var isRecording: Bool {
+        if case .recording = status { return true }
+        return false
+    }
 
     public var currentTranscript: MeetingTranscript? {
         get {
@@ -56,6 +69,7 @@ public final class AppState: ObservableObject {
     public init() {
         self.transcripts = TranscriptStore.shared.loadAll()
         self.selectedTranscriptId = self.transcripts.first?.id
+        self.audioSources = AudioSourceStore.shared.load()
 
         Task {
             statusMessage = "Modellen aan het voorbereiden..."
@@ -78,7 +92,14 @@ public final class AppState: ObservableObject {
 
     public func startRecording(meetingTitle: String? = nil) {
         do {
-            let session = try audioCoordinator.startSession(meetingTitle: meetingTitle)
+            let enabledSources = audioSources.filter(\.isEnabled)
+            let bundleIDs = enabledSources.isEmpty ? nil : enabledSources.map(\.bundleIdentifier)
+            let session = try audioCoordinator.startSession(meetingTitle: meetingTitle, captureProfile: bundleIDs.map {
+                let profile = CaptureProfile(name: "Actief", apps: $0.map { id in
+                    AudioSourceApp(bundleIdentifier: id, name: id)
+                })
+                return profile
+            })
             recordingStartTime = session.startedAt
             status = .recording(elapsed: 0)
             statusMessage = "Opname loopt..."
@@ -130,7 +151,8 @@ public final class AppState: ObservableObject {
     }
 
     public func selectAndTranscribeFile() {
-        DispatchQueue.main.async {
+        DispatchQueue.main.async { [weak self] in
+            guard let self else { return }
             NSApp.activate(ignoringOtherApps: true)
             let panel = NSOpenPanel()
             panel.canChooseFiles = true
@@ -171,6 +193,49 @@ public final class AppState: ObservableObject {
                 self.statusMessage = "Fout bij bestandstranscriptie: \(error.localizedDescription)"
             }
         }
+    }
+
+    public func saveAudioSources() {
+        AudioSourceStore.shared.save(audioSources)
+    }
+
+    public func toggleAudioSource(bundleIdentifier: String) {
+        guard let index = audioSources.firstIndex(where: { $0.bundleIdentifier == bundleIdentifier }) else { return }
+        audioSources[index].isEnabled.toggle()
+        saveAudioSources()
+    }
+
+    public func addAudioSource(app: AudioSourceApp) {
+        guard !audioSources.contains(where: { $0.bundleIdentifier == app.bundleIdentifier }) else { return }
+        audioSources.append(app)
+        saveAudioSources()
+    }
+
+    public func removeAudioSource(bundleIdentifier: String) {
+        audioSources.removeAll { $0.bundleIdentifier == bundleIdentifier }
+        saveAudioSources()
+    }
+
+    public func confirmSuggestedSpeakers() {
+        guard var transcript = currentTranscript else { return }
+
+        for index in transcript.speakers.indices {
+            guard let suggestedName = transcript.speakers[index].suggestedName,
+                  !transcript.speakers[index].isConfirmed else { continue }
+
+            transcript.speakers[index].assignedName = suggestedName
+            transcript.speakers[index].isConfirmed = true
+
+            if let embedding = transcript.speakers[index].embedding {
+                speakerRegistry.registerOrUpdate(name: suggestedName, embedding: embedding)
+            }
+
+            for segmentIndex in transcript.segments.indices where transcript.segments[segmentIndex].speakerId == transcript.speakers[index].id {
+                transcript.segments[segmentIndex].speakerName = suggestedName
+            }
+        }
+
+        currentTranscript = transcript
     }
 
     public func updateSpeakerName(speakerId: String, newName: String, saveToProfile: Bool = true) {

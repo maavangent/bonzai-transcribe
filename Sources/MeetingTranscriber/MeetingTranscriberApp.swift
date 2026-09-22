@@ -6,9 +6,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     var appState: AppState?
 
     func applicationDidFinishLaunching(_ notification: Notification) {
-        if let appState = appState {
-            WindowManager.shared.showMainWindow(appState: appState)
-        }
+        // showMainWindow wordt aangeroepen zodra appState gekoppeld is via onAppear
+        // in de MenuBarExtra body. Hier nog niets doen.
     }
 
     func applicationShouldHandleReopen(_ sender: NSApplication, hasVisibleWindows flag: Bool) -> Bool {
@@ -33,6 +32,7 @@ struct MeetingTranscriberApp: App {
             MenuBarPopupView(appState: appState)
                 .onAppear {
                     appDelegate.appState = appState
+                    WindowManager.shared.showMainWindowIfNeeded(appState: appState)
                 }
         } label: {
             menuBarLabel

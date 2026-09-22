@@ -34,11 +34,22 @@ public final class SystemAudioRecorder: @unchecked Sendable {
 
     public init() {}
 
-    public func start(writingTo url: URL) throws {
+    public func start(writingTo url: URL, bundleIdentifiers: [String]? = nil) throws {
         guard !isRecording else { return }
 
-        let description = CATapDescription(stereoGlobalTapButExcludeProcesses: [])
-        description.name = "MeetingTranscriber system tap"
+        let description: CATapDescription
+        if let bundleIdentifiers, !bundleIdentifiers.isEmpty {
+            guard #available(macOS 26.0, *) else {
+                throw RecorderError.tapCreationFailed(kAudioHardwareUnsupportedOperationError)
+            }
+            description = CATapDescription()
+            description.bundleIDs = bundleIdentifiers
+            description.isMixdown = true
+            description.isMono = true
+        } else {
+            description = CATapDescription(stereoGlobalTapButExcludeProcesses: [])
+        }
+        description.name = "Bonzai Transcribe app tap"
         description.isPrivate = true
         description.muteBehavior = .unmuted
 

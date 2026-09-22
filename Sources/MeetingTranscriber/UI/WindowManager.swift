@@ -8,6 +8,12 @@ public final class WindowManager {
 
     private var mainWindow: NSWindow?
     private var speakerWindow: NSWindow?
+    private var captureProfilesWindow: NSWindow?
+
+    public func showMainWindowIfNeeded(appState: AppState) {
+        guard mainWindow == nil else { return }
+        showMainWindow(appState: appState)
+    }
 
     public func showMainWindow(appState: AppState) {
         NSApp.activate(ignoringOtherApps: true)
@@ -26,14 +32,38 @@ public final class WindowManager {
             backing: .buffered,
             defer: false
         )
-        window.title = "Meeting Transcriber"
+        window.identifier = NSUserInterfaceItemIdentifier("BonzaiTranscribeMainWindow")
+        window.title = "Bonzai Transcribe"
         window.contentViewController = hostingController
+        window.setFrameAutosaveName("BonzaiTranscribeMainWindow")
         window.center()
-        window.setFrameAutosaveName("MeetingTranscriberMainWindow")
         window.isReleasedWhenClosed = false
         window.makeKeyAndOrderFront(nil)
 
         self.mainWindow = window
+    }
+
+    public func showCaptureProfilesWindow(appState: AppState) {
+        NSApp.activate(ignoringOtherApps: true)
+        if let window = captureProfilesWindow {
+            window.makeKeyAndOrderFront(nil)
+            return
+        }
+
+        let hostingController = NSHostingController(rootView: CaptureProfilesView(appState: appState))
+        let window = NSWindow(
+            contentRect: NSRect(x: 0, y: 0, width: 760, height: 520),
+            styleMask: [.titled, .closable, .miniaturizable, .resizable],
+            backing: .buffered,
+            defer: false
+        )
+        window.title = "Opnamebronnen — Bonzai Transcribe"
+        window.contentViewController = hostingController
+        window.center()
+        window.setFrameAutosaveName("BonzaiTranscribeCaptureProfilesWindow")
+        window.isReleasedWhenClosed = false
+        window.makeKeyAndOrderFront(nil)
+        captureProfilesWindow = window
     }
 
     public func showSpeakerWindow(appState: AppState) {
@@ -53,10 +83,10 @@ public final class WindowManager {
             backing: .buffered,
             defer: false
         )
-        window.title = "Stemprofielen Beheren"
+        window.title = "Bonzai Transcribe"
         window.contentViewController = hostingController
         window.center()
-        window.setFrameAutosaveName("MeetingTranscriberSpeakerWindow")
+        window.setFrameAutosaveName("BonzaiTranscribeSpeakerWindow")
         window.isReleasedWhenClosed = false
         window.makeKeyAndOrderFront(nil)
 

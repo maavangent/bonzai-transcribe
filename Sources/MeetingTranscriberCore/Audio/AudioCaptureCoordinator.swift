@@ -57,7 +57,10 @@ public final class AudioCaptureCoordinator: @unchecked Sendable {
         micRecorder.isRecording || systemRecorder.isRecording
     }
 
-    public func startSession(meetingTitle: String? = nil) throws -> RecordingSessionInfo {
+    public func startSession(
+        meetingTitle: String? = nil,
+        captureProfile: CaptureProfile? = nil
+    ) throws -> RecordingSessionInfo {
         let formatter = DateFormatter()
         formatter.dateFormat = "yyyy-MM-dd_HH-mm-ss"
         let timestampStr = formatter.string(from: Date())
@@ -80,7 +83,7 @@ public final class AudioCaptureCoordinator: @unchecked Sendable {
 
         try micRecorder.start(writingTo: micURL)
         do {
-            try systemRecorder.start(writingTo: sysURL)
+            try systemRecorder.start(writingTo: sysURL, bundleIdentifiers: captureProfile?.apps.map(\.bundleIdentifier))
         } catch {
             print("⚠️ System audio tap failed to start (check permissions): \(error)")
         }

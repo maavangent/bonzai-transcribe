@@ -33,19 +33,34 @@ struct MenuBarPopupView: View {
             // Main Action Button
             switch appState.status {
             case .idle:
-                Button {
-                    appState.startRecording()
-                } label: {
-                    HStack {
-                        Image(systemName: "record.circle")
-                        Text("Start Meeting Opname")
+                VStack(spacing: 8) {
+                    HStack(spacing: 6) {
+                        Image(systemName: "waveform")
+                        Text(appState.enabledAudioSourceNames)
+                            .lineLimit(1)
+                        Spacer()
+                        Button("Wijzig") {
+                            appState.showingCaptureSources = true
+                        }
+                        .buttonStyle(.link)
                     }
-                    .frame(maxWidth: .infinity)
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+
+                    Button {
+                        appState.startRecording()
+                    } label: {
+                        HStack {
+                            Image(systemName: "record.circle")
+                            Text("Start opname")
+                        }
+                        .frame(maxWidth: .infinity)
+                    }
+                    .buttonStyle(.borderedProminent)
+                    .tint(.accentColor)
+                    .controlSize(.large)
+                    .keyboardShortcut("r", modifiers: [.command, .shift])
                 }
-                .buttonStyle(.borderedProminent)
-                .tint(.red)
-                .controlSize(.large)
-                .keyboardShortcut("r", modifiers: [.command, .shift])
 
             case .recording:
                 Button {
@@ -78,7 +93,7 @@ struct MenuBarPopupView: View {
                 } label: {
                     HStack {
                         Image(systemName: "doc.text.badge.plus")
-                        Text("Open Transcript Review")
+                        Text("Open Bonzai Transcribe")
                     }
                     .frame(maxWidth: .infinity)
                 }
@@ -115,11 +130,22 @@ struct MenuBarPopupView: View {
                 .buttonStyle(.plain)
 
                 Button {
-                    WindowManager.shared.showSpeakerWindow(appState: appState)
+                    appState.showingSpeakerProfiles = true
                 } label: {
                     HStack {
                         Image(systemName: "person.2")
                         Text("Stemprofielen beheren")
+                        Spacer()
+                    }
+                }
+                .buttonStyle(.plain)
+
+                Button {
+                    appState.showingCaptureSources = true
+                } label: {
+                    HStack {
+                        Image(systemName: "waveform.badge.plus")
+                        Text("Opnamebronnen beheren")
                         Spacer()
                     }
                 }
